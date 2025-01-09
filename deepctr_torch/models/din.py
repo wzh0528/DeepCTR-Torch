@@ -82,12 +82,19 @@ class DIN(BaseModel):
 
     def forward(self, X):
         _, dense_value_list = self.input_from_feature_columns(X, self.dnn_feature_columns, self.embedding_dict)
-
+        # print(dense_value_list)
         # sequence pooling part
         query_emb_list = embedding_lookup(X, self.embedding_dict, self.feature_index, self.sparse_feature_columns,
                                           return_feat_list=self.history_feature_list, to_list=True)
+        # print(self.sparse_feature_columns)
+        # print(self.history_feature_list)
+
+        # print(self.history_feature_columns)
+        # print(self.history_fc_names)
         keys_emb_list = embedding_lookup(X, self.embedding_dict, self.feature_index, self.history_feature_columns,
                                          return_feat_list=self.history_fc_names, to_list=True)
+
+        
         dnn_input_emb_list = embedding_lookup(X, self.embedding_dict, self.feature_index, self.sparse_feature_columns,
                                               to_list=True)
 
@@ -96,7 +103,6 @@ class DIN(BaseModel):
 
         sequence_embed_list = get_varlen_pooling_list(sequence_embed_dict, X, self.feature_index,
                                                       self.sparse_varlen_feature_columns, self.device)
-
         dnn_input_emb_list += sequence_embed_list
         deep_input_emb = torch.cat(dnn_input_emb_list, dim=-1)
 
@@ -107,7 +113,6 @@ class DIN(BaseModel):
         keys_length_feature_name = [feat.length_name for feat in self.varlen_sparse_feature_columns if
                                     feat.length_name is not None]
         keys_length = torch.squeeze(maxlen_lookup(X, self.feature_index, keys_length_feature_name), 1)  # [B, 1]
-
         hist = self.attention(query_emb, keys_emb, keys_length)           # [B, 1, E]
 
         # deep part

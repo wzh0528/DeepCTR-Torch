@@ -11,20 +11,26 @@ from deepctr_torch.models.din import DIN
 
 def get_xy_fd():
     feature_columns = [SparseFeat('user', 3, embedding_dim=8), SparseFeat('gender', 2, embedding_dim=8),
-                       SparseFeat('item', 3 + 1, embedding_dim=8), SparseFeat('item_gender', 2 + 1, embedding_dim=8),
+                       SparseFeat('item', 3 + 1, embedding_dim=8), 
+                       SparseFeat('item_gender', 2 + 1, embedding_dim=8, use_bag=True, baglen=4),
                        DenseFeat('score', 1)]
-
+    
     feature_columns += [VarLenSparseFeat(SparseFeat('hist_item', 3 + 1, embedding_dim=8), 4, length_name="seq_length"),
-                        VarLenSparseFeat(SparseFeat('hist_item_gender', 2 + 1, embedding_dim=8), 4, length_name="seq_length")]
+                        # VarLenSparseFeat(SparseFeat('item_gender', 2 + 1, embedding_dim=8), 4, length_name="seq_length"),               
+                        VarLenSparseFeat(SparseFeat('hist_item_gender', 2 + 1, embedding_dim=8, use_bag=True, baglen=4), 4 * 4, length_name="seq_length")]
     behavior_feature_list = ["item", "item_gender"]
     uid = np.array([0, 1, 2])
     ugender = np.array([0, 1, 0])
     iid = np.array([1, 2, 3])  # 0 is mask value
-    igender = np.array([1, 2, 1])  # 0 is mask value
+    # igender =  np.array([2,1,0])  # 0 is mask value
+    igender = np.array([[2,1,1,0],[1,1,1,0],[1,1,0,0]])
     score = np.array([0.1, 0.2, 0.3])
 
+    
+
     hist_iid = np.array([[1, 2, 3, 0], [1, 2, 3, 0], [1, 2, 0, 0]])
-    hist_igender = np.array([[1, 1, 2, 0], [2, 1, 1, 0], [2, 1, 0, 0]])
+    # hist_igender = np.array([[1, 1, 2, 0], [2, 1, 1, 0], [2, 1, 0, 0]])
+    hist_igender = np.array([[1, 1, 2, 0, 2, 1, 2, 0, 2, 1, 1, 0, 1, 0, 0, 0], [1, 1, 2, 0, 2, 1, 2, 0, 2, 1, 1, 0, 1, 0, 0, 0], [1, 1, 2, 0, 2, 1, 2, 0, 2, 1, 1, 0, 1, 0, 0, 0]])
     behavior_length = np.array([3, 3, 2])
 
     feature_dict = {'user': uid, 'gender': ugender, 'item': iid, 'item_gender': igender,

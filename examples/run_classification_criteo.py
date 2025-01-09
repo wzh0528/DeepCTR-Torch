@@ -54,6 +54,7 @@ if __name__ == "__main__":
     model = DeepFM(linear_feature_columns=linear_feature_columns, dnn_feature_columns=dnn_feature_columns,
                    task='binary',
                    l2_reg_embedding=1e-5, device=device)
+    # model = DIN(feature_columns, behavior_feature_list, device=device, att_weight_normalization=True)
 
     model.compile("adagrad", "binary_crossentropy",
                   metrics=["binary_crossentropy", "auc"], )

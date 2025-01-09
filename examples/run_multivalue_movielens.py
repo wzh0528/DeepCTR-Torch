@@ -27,7 +27,7 @@ if __name__ == "__main__":
     for feat in sparse_features:
         lbe = LabelEncoder()
         data[feat] = lbe.fit_transform(data[feat])
-    # preprocess the sequence feature
+    # preprocess the sequence featuref
 
     key2index = {}
     genres_list = list(map(split, data['genres'].values))

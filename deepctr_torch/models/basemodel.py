@@ -25,7 +25,7 @@ except ImportError:
     from tensorflow.python.keras._impl.keras.callbacks import CallbackList
 
 from ..inputs import build_input_features, SparseFeat, DenseFeat, VarLenSparseFeat, get_varlen_pooling_list, \
-    create_embedding_matrix, varlen_embedding_lookup
+    create_embedding_matrix, varlen_embedding_lookup, embedding_lookup
 from ..layers import PredictionLayer
 from ..layers.utils import slice_arrays
 from ..callbacks import History
@@ -62,9 +62,12 @@ class Linear(nn.Module):
 
     def forward(self, X, sparse_feat_refine_weight=None):
 
-        sparse_embedding_list = [self.embedding_dict[feat.embedding_name](
-            X[:, self.feature_index[feat.name][0]:self.feature_index[feat.name][1]].long()) for
-            feat in self.sparse_feature_columns]
+        # sparse_embedding_list = [self.embedding_dict[feat.embedding_name](
+        #     X[:, self.feature_index[feat.name][0]:self.feature_index[feat.name][1]].long()) for
+        #     feat in self.sparse_feature_columns]
+        
+        sparse_embedding_list = embedding_lookup(X, self.embedding_dict, self.feature_index, self.sparse_feature_columns,
+                                              to_list=True, linear=True)
 
         dense_value_list = [X[:, self.feature_index[feat.name][0]:self.feature_index[feat.name][1]] for feat in
                             self.dense_feature_columns]
@@ -110,6 +113,7 @@ class BaseModel(nn.Module):
 
         self.feature_index = build_input_features(
             linear_feature_columns + dnn_feature_columns)
+        print(self.feature_index)
         self.dnn_feature_columns = dnn_feature_columns
 
         self.embedding_dict = create_embedding_matrix(dnn_feature_columns, init_std, sparse=False, device=device)
@@ -365,12 +369,15 @@ class BaseModel(nn.Module):
             raise ValueError(
                 "DenseFeat is not supported in dnn_feature_columns")
 
-        sparse_embedding_list = [embedding_dict[feat.embedding_name](
-            X[:, self.feature_index[feat.name][0]:self.feature_index[feat.name][1]].long()) for
-            feat in sparse_feature_columns]
+        # sparse_embedding_list = [embedding_dict[feat.embedding_name](
+        #     X[:, self.feature_index[feat.name][0]:self.feature_index[feat.name][1]].long()) for
+        #     feat in sparse_feature_columns]
+        sparse_embedding_list = embedding_lookup(X, self.embedding_dict, self.feature_index, sparse_feature_columns,
+                                              to_list=True)
 
         sequence_embed_dict = varlen_embedding_lookup(X, self.embedding_dict, self.feature_index,
                                                       varlen_sparse_feature_columns)
+        
         varlen_sparse_embedding_list = get_varlen_pooling_list(sequence_embed_dict, X, self.feature_index,
                                                                varlen_sparse_feature_columns, self.device)
 

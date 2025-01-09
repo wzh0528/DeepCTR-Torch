@@ -19,11 +19,11 @@ DEFAULT_GROUP_NAME = "default_group"
 
 class SparseFeat(namedtuple('SparseFeat',
                             ['name', 'vocabulary_size', 'embedding_dim', 'use_hash', 'dtype', 'embedding_name',
-                             'group_name'])):
+                             'group_name', 'use_bag', 'baglen'])):
     __slots__ = ()
 
     def __new__(cls, name, vocabulary_size, embedding_dim=4, use_hash=False, dtype="int32", embedding_name=None,
-                group_name=DEFAULT_GROUP_NAME):
+                group_name=DEFAULT_GROUP_NAME, use_bag=False, baglen=1):
         if embedding_name is None:
             embedding_name = name
         if embedding_dim == "auto":
@@ -32,7 +32,7 @@ class SparseFeat(namedtuple('SparseFeat',
             print(
                 "Notice! Feature Hashing on the fly currently is not supported in torch version,you can use tensorflow version!")
         return super(SparseFeat, cls).__new__(cls, name, vocabulary_size, embedding_dim, use_hash, dtype,
-                                              embedding_name, group_name)
+                                              embedding_name, group_name, use_bag, baglen)
 
     def __hash__(self):
         return self.name.__hash__()
@@ -72,6 +72,14 @@ class VarLenSparseFeat(namedtuple('VarLenSparseFeat',
     @property
     def group_name(self):
         return self.sparsefeat.group_name
+    
+    @property
+    def use_bag(self):
+        return self.sparsefeat.use_bag
+    
+    @property
+    def baglen(self):
+        return self.sparsefeat.baglen
 
     def __hash__(self):
         return self.name.__hash__()
@@ -107,8 +115,12 @@ def build_input_features(feature_columns):
         if feat_name in features:
             continue
         if isinstance(feat, SparseFeat):
-            features[feat_name] = (start, start + 1)
-            start += 1
+            if feat.use_bag:
+                features[feat_name] = (start, start + feat.baglen)
+                start += feat.baglen
+            else:
+                features[feat_name] = (start, start + 1)
+                start += 1
         elif isinstance(feat, DenseFeat):
             features[feat_name] = (start, start + feat.dimension)
             start += feat.dimension
@@ -170,9 +182,12 @@ def create_embedding_matrix(feature_columns, init_std=0.0001, linear=False, spar
          sparse_feature_columns + varlen_sparse_feature_columns}
     )
 
+    # for feat in sparse_feature_columns:
+    #     if feat
+
     # for feat in varlen_sparse_feature_columns:
     #     embedding_dict[feat.embedding_name] = nn.EmbeddingBag(
-    #         feat.dimension, embedding_size, sparse=sparse, mode=feat.combiner)
+    #         feat.vocabulary_size, feat.embedding_dim, sparse=sparse, mode=feat.combiner)
 
     for tensor in embedding_dict.values():
         nn.init.normal_(tensor.weight, mean=0, std=init_std)
@@ -181,7 +196,7 @@ def create_embedding_matrix(feature_columns, init_std=0.0001, linear=False, spar
 
 
 def embedding_lookup(X, sparse_embedding_dict, sparse_input_dict, sparse_feature_columns, return_feat_list=(),
-                     mask_feat_list=(), to_list=False):
+                     mask_feat_list=(), to_list=False, linear=False):
     """
         Args:
             X: input Tensor [batch_size x hidden_dim]
@@ -204,6 +219,14 @@ def embedding_lookup(X, sparse_embedding_dict, sparse_input_dict, sparse_feature
             lookup_idx = np.array(sparse_input_dict[feature_name])
             input_tensor = X[:, lookup_idx[0]:lookup_idx[1]].long()
             emb = sparse_embedding_dict[embedding_name](input_tensor)
+            if fc.use_bag == True:
+                batch_size, total_length  = input_tensor.size()
+                n = total_length // fc.baglen
+                mask = (input_tensor != 0).float().unsqueeze(-1) 
+                masked_emb = emb * mask
+                reshaped_masked_emb = masked_emb.view(batch_size, n, fc.baglen, fc.embedding_dim if not linear else 1)
+                reshaped_mask = mask.view(batch_size, n, fc.baglen, 1)
+                emb = reshaped_masked_emb.sum(dim=-2) / reshaped_mask.sum(dim=-2)
             group_embedding_dict[fc.group_name].append(emb)
     if to_list:
         return list(chain.from_iterable(group_embedding_dict.values()))
