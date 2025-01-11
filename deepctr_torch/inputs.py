@@ -222,11 +222,22 @@ def embedding_lookup(X, sparse_embedding_dict, sparse_input_dict, sparse_feature
             if fc.use_bag == True:
                 batch_size, total_length  = input_tensor.size()
                 n = total_length // fc.baglen
-                mask = (input_tensor != 0).float().unsqueeze(-1) 
-                masked_emb = emb * mask
-                reshaped_masked_emb = masked_emb.view(batch_size, n, fc.baglen, fc.embedding_dim if not linear else 1)
-                reshaped_mask = mask.view(batch_size, n, fc.baglen, 1)
-                emb = reshaped_masked_emb.sum(dim=-2) / reshaped_mask.sum(dim=-2)
+                mask = (input_tensor != 0).float().unsqueeze(-1)
+                grouped_embedded = emb.view(batch_size, n, fc.baglen, fc.embedding_dim if not linear else 1)
+                grouped_mask = mask.view(batch_size, n, fc.baglen, 1)
+
+                # 对每组求非零平均值
+                grouped_sum = (grouped_embedded * grouped_mask).sum(dim=2)
+                non_zero_count = grouped_mask.sum(dim=2)
+
+                # 为防止除以0，将非零计数替换为1（避免nan），然后除以非零计数
+                non_zero_count.clamp_min_(1)
+                emb = grouped_sum / non_zero_count
+                # masked_emb = emb * mask
+                # reshaped_masked_emb = masked_emb.view(batch_size, n, fc.baglen, fc.embedding_dim if not linear else 1)
+                # reshaped_mask = mask.view(batch_size, n, fc.baglen, 1).sum(dim=-2)
+                # emb = torch.where(reshaped_mask != 0, reshaped_masked_emb.sum(dim=-2) / reshaped_mask, torch.zeros_like(reshaped_masked_emb.sum(dim=-2)))
+                
             group_embedding_dict[fc.group_name].append(emb)
     if to_list:
         return list(chain.from_iterable(group_embedding_dict.values()))

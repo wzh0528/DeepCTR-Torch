@@ -139,6 +139,9 @@ class DIEN(BaseModel):
         if self.use_negsampling:
             neg_keys_emb_list = embedding_lookup(X, self.embedding_dict, features, neg_history_feature_columns,
                                                  return_feat_list=neg_history_fc_names, to_list=True)
+            print(neg_history_feature_columns)
+            print(neg_history_fc_names)
+            print(neg_keys_emb_list)
             neg_keys_emb = concat_fun(neg_keys_emb_list)
         else:
             neg_keys_emb = None

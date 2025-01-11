@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+import sys
+
+sys.path.insert(0, '..')
+
 import pandas as pd
 import torch
 from sklearn.metrics import log_loss, roc_auc_score
@@ -60,7 +64,9 @@ if __name__ == "__main__":
                   metrics=["binary_crossentropy", "auc"], )
 
     history = model.fit(train_model_input, train[target].values, batch_size=32, epochs=10, verbose=2,
-                        validation_split=0.2)
+                        validation_data=(test_model_input, test[target].values))
+    
+    print(history)
     pred_ans = model.predict(test_model_input, 256)
     print("")
     print("test LogLoss", round(log_loss(test[target].values, pred_ans), 4))

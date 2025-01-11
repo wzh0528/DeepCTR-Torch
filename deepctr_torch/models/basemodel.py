@@ -233,6 +233,7 @@ class BaseModel(nn.Module):
         # Train
         print("Train on {0} samples, validate on {1} samples, {2} steps per epoch".format(
             len(train_tensor_data), len(val_y), steps_per_epoch))
+        best_auc = 0.0
         for epoch in range(initial_epoch, epochs):
             callbacks.on_epoch_begin(epoch)
             epoch_logs = {}
@@ -242,7 +243,7 @@ class BaseModel(nn.Module):
             train_result = {}
             try:
                 with tqdm(enumerate(train_loader), disable=verbose != 1) as t:
-                    for _, (x_train, y_train) in t:
+                    for step, (x_train, y_train) in t:
                         x = x_train.to(self.device).float()
                         y = y_train.to(self.device).float()
 
@@ -259,10 +260,14 @@ class BaseModel(nn.Module):
                         reg_loss = self.get_regularization_loss()
 
                         total_loss = loss + reg_loss + self.aux_loss
-
+                        if step % 10 == 0:
+                            print("step:{} total_loss:{: .4f}".format(step, total_loss.item()))
                         loss_epoch += loss.item()
                         total_loss_epoch += total_loss.item()
                         total_loss.backward()
+                        # for name, param in model.named_parameters():
+                        #     if param.grad is not None:
+                        #         print(f"Gradient of {name}: {param.grad}")
                         optim.step()
 
                         if verbose > 0:
@@ -272,11 +277,14 @@ class BaseModel(nn.Module):
                                 train_result[name].append(metric_fun(
                                     y.cpu().data.numpy(), y_pred.cpu().data.numpy().astype("float64")))
 
-
+            
             except KeyboardInterrupt:
                 t.close()
                 raise
             t.close()
+            print('current lr: ', self.optim.param_groups[0]['lr'])
+            self.scheduler.step()
+            
 
             # Add epoch_logs
             epoch_logs["loss"] = total_loss_epoch / sample_num
@@ -303,7 +311,10 @@ class BaseModel(nn.Module):
                     for name in self.metrics:
                         eval_str += " - " + "val_" + name + \
                                     ": {0: .4f}".format(epoch_logs["val_" + name])
+                    best_auc = max(best_auc, epoch_logs["val_auc"])
+                    print("best_auc: {0: .4f}".format(best_auc))
                 print(eval_str)
+                
             callbacks.on_epoch_end(epoch, epoch_logs)
             if self.stop_training:
                 break
@@ -450,15 +461,16 @@ class BaseModel(nn.Module):
         self.optim = self._get_optim(optimizer)
         self.loss_func = self._get_loss_func(loss)
         self.metrics = self._get_metrics(metrics)
+        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optim, gamma=0.9)
 
     def _get_optim(self, optimizer):
         if isinstance(optimizer, str):
             if optimizer == "sgd":
-                optim = torch.optim.SGD(self.parameters(), lr=0.01)
+                optim = torch.optim.SGD(self.parameters(), lr=1)
             elif optimizer == "adam":
                 optim = torch.optim.Adam(self.parameters())  # 0.001
             elif optimizer == "adagrad":
-                optim = torch.optim.Adagrad(self.parameters())  # 0.01
+                optim = torch.optim.Adagrad(self.parameters(), lr=0.01)  # 0.01
             elif optimizer == "rmsprop":
                 optim = torch.optim.RMSprop(self.parameters())
             else:

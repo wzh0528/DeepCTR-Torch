@@ -68,6 +68,7 @@ def feature_process(data):
     for fea in ['genres']:
         data[fea] = data[fea].apply(ast.literal_eval)
         max_len_dict[fea] = data[fea].apply(len).max()
+        print(max_len_dict[fea])
         data[fea] = data[fea].apply(lambda lst: padding_and_increment(lst, 0, max_len_dict[fea]))
     
     for fea in ['sequence_item_ids']:
@@ -99,12 +100,11 @@ if __name__ == "__main__":
     args = get_args()
     print('data_loading...')
     train_data = pd.read_csv('~/userlm/data/ml1m_test_sample.csv')
-    test_data = pd.read_csv('~/userlm/data/ml1m_test_sample.csv')
+    # train_data = train_data.sample(frac=0.5, random_state=42)
 
     target = ['label']
 
     feature_process(train_data)
-    feature_process(test_data)
 
     feature_columns = get_feature_column()
     behavior_feature_list = ["item_id", "item_genres"]
@@ -116,9 +116,11 @@ if __name__ == "__main__":
     feature_names = get_feature_names(feature_columns)
     train_model_input = {name: np.array(train_data[feature_dict[name]].to_list()) for name in feature_names}  
     train_label = train_data[target].values
-    test_model_input = {name: np.array(test_data[feature_dict[name]].to_list()) for name in feature_names} 
-    test_label = test_data[target].values
 
+    # for name in feature_names:
+    #     print(name)
+    #     print(train_model_input[name][0]) 
+    # print(train_label[0])
     device = 'cpu'
     use_cuda = True
     if use_cuda and torch.cuda.is_available():
@@ -139,11 +141,4 @@ if __name__ == "__main__":
                   metrics=["binary_crossentropy", "auc"], )
     
     print('training...')
-    history = model.fit(train_model_input, train_label, batch_size=32, epochs=10, verbose=2,
-                        validation_data = (test_model_input, test_label))
-    pred_ans = model.predict(test_model_input, 256)
-
-    best_auc = 0.0
-    print("")
-    print("test LogLoss", round(log_loss(test_label, pred_ans), 4))
-    print("test AUC", round(roc_auc_score(test_label, pred_ans), 4))
+    history = model.fit(train_model_input, train_label, batch_size=32, epochs=10, verbose=2)

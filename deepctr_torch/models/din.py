@@ -86,14 +86,11 @@ class DIN(BaseModel):
         # sequence pooling part
         query_emb_list = embedding_lookup(X, self.embedding_dict, self.feature_index, self.sparse_feature_columns,
                                           return_feat_list=self.history_feature_list, to_list=True)
-        # print(self.sparse_feature_columns)
-        # print(self.history_feature_list)
-
-        # print(self.history_feature_columns)
-        # print(self.history_fc_names)
         keys_emb_list = embedding_lookup(X, self.embedding_dict, self.feature_index, self.history_feature_columns,
                                          return_feat_list=self.history_fc_names, to_list=True)
-
+        # print(keys_emb_list[1])
+        # keys_emb_list[1] = keys_emb_list[0]
+        # print(torch.keys_emb_list[1].shape)
         
         dnn_input_emb_list = embedding_lookup(X, self.embedding_dict, self.feature_index, self.sparse_feature_columns,
                                               to_list=True)

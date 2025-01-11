@@ -7,6 +7,7 @@ Author:
 import json
 import logging
 from threading import Thread
+import torch
 
 import requests
 
@@ -42,3 +43,10 @@ def check_version(version):
             return
 
     Thread(target=check, args=(version,)).start()
+
+def check_nan(x, name):
+    nan_mask = torch.isnan(x)
+    contains_nan = torch.any(nan_mask)
+    if contains_nan:
+        print(name, 'found nan')
+        print(x)
